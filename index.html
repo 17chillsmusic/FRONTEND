@@ -1,0 +1,137 @@
+<!doctype html><html lang=en><meta charset=utf-8><meta name=viewport content="width=device-width,initial-scale=1"><title>FanBridge</title>
+<link rel=preconnect href=https://fonts.googleapis.com><link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel=stylesheet>
+<style>
+*{box-sizing:border-box}body{margin:0;font:16px/1.6 Inter,system-ui,sans-serif;color:#111;background:#f3f4f6}
+h1,h2,h3,.f{font-family:Syne,Inter,system-ui,sans-serif;font-weight:700;letter-spacing:-.01em}
+header{background:#000;color:#fff;padding:18px 20px;display:flex;justify-content:space-between;align-items:center;gap:12px}
+header a,header button{color:#fff;text-decoration:none;background:none;border:0;font:inherit;cursor:pointer}
+.brand b{display:block;font:800 22px/1.1 Syne,sans-serif}.brand span{font-size:14px;color:#d1d5db}
+nav a,nav button{margin-left:16px;font-size:12px;font-weight:600;letter-spacing:.1em;text-transform:uppercase}
+main{max-width:680px;margin:0 auto;padding:32px 20px 60px}h1{font-size:30px;line-height:1.2;margin:8px 0 10px}h2{font-size:22px;margin:30px 0 8px}
+.lab{color:#7c1fd6;font-size:12px;font-weight:700;letter-spacing:.1em;text-transform:uppercase}.m{color:#6b7280;font-size:15px}
+.card{background:#fff;border-radius:16px;padding:18px 20px;margin:14px 0;display:flex;justify-content:space-between;align-items:center;gap:14px;color:#111;text-decoration:none;box-shadow:0 1px 2px rgba(0,0,0,.05)}
+.card h3{margin:2px 0;font-size:19px}
+.b{background:#000;color:#fff;border:1px solid #000;border-radius:999px;padding:9px 20px;font:600 14px Inter,sans-serif;cursor:pointer;white-space:nowrap}.o{background:transparent;color:#000}
+input,select,textarea{font:inherit;width:100%;padding:12px 14px;border:1px solid #d1d5db;border-radius:12px;margin:6px 0;background:#fff;color:#111}
+.tabs{display:flex;gap:22px;border-bottom:1px solid #d1d5db;margin:18px 0}.tabs button{background:none;border:0;border-bottom:3px solid transparent;padding:8px 0;font:600 12px Inter,sans-serif;letter-spacing:.1em;text-transform:uppercase;color:#6b7280;cursor:pointer}
+.tabs .on{color:#000;border-color:#7c1fd6}
+.s{display:grid;grid-template-columns:1fr 1fr;gap:14px}.s div{background:#fff;border-radius:16px;padding:16px 18px}.s b{display:block;font:700 20px Syne,sans-serif;margin-top:4px}
+.ch{background:#fff;border-radius:16px;padding:6px 18px;height:320px;overflow:auto}.ch p{margin:12px 0}.r{display:flex;gap:10px;align-items:center}.r .b{flex:none}
+dialog{border:0;border-radius:20px;padding:24px;width:min(92vw,380px)}dialog::backdrop{background:rgba(0,0,0,.5)}
+</style>
+<header><a href=#/ class=brand><b>FanBridge</b><span>Pay the real artist</span></a><nav id=nv></nav></header><main id=app></main><dialog id=dg></dialog>
+<script>
+try{localStorage.length}catch(e){Object.defineProperty(window,'localStorage',{value:{},configurable:true})}
+const $=s=>document.querySelector(s),fmt=n=>'UGX '+Number(n).toLocaleString(),esc=s=>String(s).replace(/[&<>"']/g,c=>'&#'+c.charCodeAt(0)+';');
+const TY={song:'Song',album:'Album',merch:'Merch'},NONE='<p class=m>Nothing here yet.</p>';
+let me=null,cur=null,tab='m',poll;
+async function realApi(p,o={}){const h={'x-fb':'1'};if(o.json)h['content-type']='application/json';
+ const r=await fetch('/api/'+p,{method:o.method||(o.json?'POST':'GET'),headers:h,body:o.json?JSON.stringify(o.json):o.body});
+ if(o.raw)return r;const d=await r.json().catch(()=>({}));if(!r.ok)throw new Error(d.error||'Something went wrong');return d}
+const DB={items:[{id:'i1',a:'a1',type:'song',title:'Introvert',price:2000},{id:'i2',a:'a1',type:'song',title:'Late Night Boda',price:1500},{id:'i3',a:'a1',type:'album',title:'Kampala Sessions',price:8000},{id:'i4',a:'a1',type:'merch',title:'Official Cap',price:25000,stock:12},{id:'i7',a:'a1',type:'merch',title:'Tour T-Shirt',price:30000,stock:0},{id:'i5',a:'a2',type:'song',title:'Afro Sunrise',price:2000},{id:'i6',a:'a3',type:'album',title:'Acholi Roots',price:6000}],
+ ar:[{id:'a1',name:'Nakato Grace',p:1},{id:'a2',name:'Kato Beats',p:1},{id:'a3',name:'The Gulu Band'}],bought:[],bal:184000,sales:312000,tips:46000,dl:128,rc:[{title:'Introvert',amount:2000,phone:''},{title:'Official Cap',amount:25000,phone:'0771234567'}],
+ chat:{a1:[{name:'Nakato Grace',artist:true,text:'Thank you all for the support. New album soon.'},{name:'Brian',artist:false,text:'Introvert is on repeat all day.'}]},role:'fan',prem:false,totp:false,in:0,name:'Guest',pend:[{id:'p1',name:'Okello Jazz',email:'okello@example.com',phone:'0772000111'},{id:'p2',name:'Amina Soul',email:'amina@example.com',phone:'0701222333'}]};
+const wait=()=>new Promise(r=>setTimeout(r,200)),art=id=>DB.ar.find(x=>x.id===id),cnt=id=>DB.items.filter(i=>i.a===id&&!i.hidden).length;
+async function mockApi(p,o={}){await wait();const[k,a]=p.split('?')[0].split('/'),m=o.method||(o.json?'POST':'GET'),b=o.json||{};
+ if(k==='artists'){if(!a)return DB.ar.map(x=>({id:x.id,name:x.name,n:cnt(x.id)}));const x=art(a);return{id:x.id,name:x.name,verified:true,premium:!!x.p,items:DB.items.filter(i=>i.a===a&&!i.hidden)}}
+ if(k==='register'||k==='login'){DB.role=b.email==='admin@fanbridge.test'?'admin':b.role==='artist'?'artist':'fan';DB.name=b.name||(DB.role==='artist'?'Your Artist Name':'Guest Fan');DB.in=1;return{ok:1}}
+ if(k==='me'){if(!DB.in)throw new Error('Please log in');return{id:'u1',name:DB.name,role:DB.role,verified:true,balance:DB.bal,bought:DB.bought,totp:DB.totp,payout:{phone:'07*****567',network:'mtn',hold:0}}}
+ if(k==='buy'){const i=DB.items.find(x=>x.id===b.itemId);if(i.type==='merch'){if(!(i.stock>0))throw new Error('Sold out');i.stock--}DB.bought.push(i.id);return{id:'o1',status:'paid'}}
+ if(k==='tip'){DB.tips+=b.amount;return{id:'o2',status:'paid'}}
+ if(k==='orders')return{id:a,status:'paid'};
+ if(k==='download'){if(o.raw)return{ok:true,blob:async()=>new Blob(['Sample file for the preview']),headers:{get:()=>'sample.txt'}}}
+ if(k==='purchases')return DB.bought.map(id=>{const i=DB.items.find(x=>x.id===id);return{id:i.id,type:i.type,title:i.title,artist:art(i.a).name}});
+ if(k==='chat'){const L=DB.chat[a]=DB.chat[a]||[];if(m==='POST')L.push({name:DB.name,artist:false,text:b.text});return L}
+ if(k==='dash')return{premium:DB.prem,until:Date.now()+2592e6,price:20000,balance:DB.bal,sales:DB.sales,tips:DB.tips,downloads:DB.dl,recent:DB.rc};
+ if(k==='withdraw'){DB.bal-=b.amount;return{ok:1}}
+ if(k==='items'&&m==='DELETE'){DB.items=DB.items.filter(x=>x.id!==a);return{ok:1}}
+ if(k==='items'){const i={id:'n'+Date.now(),a:'a1',...b};DB.items.push(i);return i}
+ if(k==='premium'){DB.prem=true;return{id:'o9',status:'paid'}}
+ if(k==='mine')return DB.items.filter(i=>i.a==='a1');
+ if(k==='stock'){DB.items.find(x=>x.id===a).stock=b.stock;return{ok:1}}
+ if(k==='hide'){const i=DB.items.find(x=>x.id===a);i.hidden=!i.hidden;return{ok:1}}
+ if(k==='account'){DB.in=0;return{ok:1}}
+ if(k==='admin')return{pending:DB.pend,reports:[{id:'x',artist:'Fake Nakato',reason:'Pretending to be Nakato Grace on WhatsApp and asking for money.'}]};
+ if(k==='verify'){DB.pend=DB.pend.filter(x=>x.id!==a);return{ok:1}}
+ if(k==='earnings'){const t=Date.now();return{subs:100000,premiumArtists:5,gross:942000,fee:180700,feeMonth:72400,owed:184000,withdrawn:577300,orders:96,
+  artists:[{name:'Nakato Grace',gross:540000,fee:52000,balance:120000},{name:'Kato Beats',gross:210000,fee:20000,balance:40000},{name:'The Gulu Band',gross:92000,fee:8700,balance:24000}],
+  recent:[{title:'Introvert',artist:'Nakato Grace',amount:2000,fee:200,ts:t},{title:'Fan support',artist:'Kato Beats',amount:5000,fee:400,ts:t-864e5},{title:'Official Cap',artist:'Nakato Grace',amount:25000,fee:2500,ts:t-2*864e5}],
+  wd:[{artist:'Nakato Grace',amount:150000,network:'mtn',status:'paid',ts:t-3*864e5},{artist:'Kato Beats',amount:60000,network:'airtel',status:'paid',ts:t-5*864e5}]}}
+ if(k==='logout'){DB.in=0;return{ok:1}}
+ if(k==='2fa'){if(a==='enable')DB.totp=true;if(a==='disable')DB.totp=false;return{ok:1,secret:'JBSWY3DPEHPK3PXP'}}
+ if(k==='audit')return[{ts:Date.now(),a:'login',d:''},{ts:Date.now()-36e5,a:'verified',d:'artist account'},{ts:Date.now()-72e5,a:'withdraw',d:'150000 to 07*****567'}];
+ return{ok:1}}
+try{Object.assign(DB,JSON.parse(localStorage.fbdemo||'{}'))}catch(e){}
+async function demoApi(p,o){try{return await mockApi(p,o)}finally{try{localStorage.fbdemo=JSON.stringify(DB)}catch(e){}}}
+let demo=!/^https?:$/.test(location.protocol);
+async function api(p,o={}){return demo?demoApi(p,o):realApi(p,o)}
+if(!demo)realApi('config').then(c=>{if(c.sandbox){const d=document.createElement('div');d.style.cssText='background:#7c1fd6;color:#fff;text-align:center;font-size:13px;padding:6px 12px';d.textContent='Test mode. Payments are simulated and no real money moves.';document.querySelector('header').after(d)}}).catch(()=>0);
+if(demo){const d=document.createElement('div');d.style.cssText='background:#7c1fd6;color:#fff;text-align:center;font-size:13px;padding:6px 12px';d.textContent='Demo mode. No server found, so this is sample data kept on this phone. Real accounts and payments need the server running.';document.querySelector('header').after(d)}
+const refresh=async()=>{me=await api('me').catch(()=>null)};
+const nav=()=>$('#nv').innerHTML='<a href=#/>Home</a>'+(me?'<a href=#/me>Account</a><button onclick=out()>Log out</button>':'<a href=#/in>Log in</a>');
+const out=async()=>{await api('logout',{method:'POST'}).catch(()=>0);me=null;location.hash='#/';route()};
+const R={'':home,a:artist,in:login,me:portal};
+async function route(){clearInterval(poll);const[,r='',a]=location.hash.split('/');nav();scrollTo(0,0);try{await(R[r]||home)(a)}catch(e){$('#app').innerHTML='<p>'+esc(e.message)+'</p>'}}
+addEventListener('hashchange',route);refresh().then(route);
+async function home(){const L=await api('artists');$('#app').innerHTML='<span class=lab>Ugandan music</span><h1>Buy music and merch directly from the artists you love.</h1><p class=m>Pay with MTN Mobile Money or Airtel Money. Every artist here is verified.</p><input id=q placeholder="Search artists"><div id=l></div>';
+ const d=()=>$('#l').innerHTML=L.filter(x=>x.name.toLowerCase().includes($('#q').value.toLowerCase())).map(x=>`<a class=card href=#/a/${x.id}><span><span class=lab>Verified artist</span><h3>${esc(x.name)}</h3><span class=m>${x.n} release${x.n==1?'':'s'}</span></span><span class="b o">View</span></a>`).join('')||NONE;$('#q').oninput=d;d()}
+const row=i=>{const own=me&&me.bought.includes(i.id),L=`<div class=card><span><span class=lab>${TY[i.type]}</span><h3>${esc(i.title)}</h3><span class=m>${fmt(i.price)}`;
+ if(i.type==='merch')return L+(i.stock>0?', '+i.stock+' in stock':'')+'</span></span>'+(i.stock>0?`<button class=b onclick="buy('${i.id}')">Buy</button>`:'<span class=lab>Sold out</span>')+'</div>';
+ return L+'</span></span>'+(own?`<button class=b onclick="dl('${i.id}')">Download</button>`:`<button class=b onclick="buy('${i.id}')">Buy</button>`)+'</div>'};
+async function artist(id){cur=await api('artists/'+id);if(!cur.premium&&(tab==='c'||tab==='t'))tab='m';
+ $('#app').innerHTML=`<span class=lab>${cur.verified?'Verified artist':'Pending verification'}</span><h1>${esc(cur.name)}</h1><div class=tabs>`+[['m','Music'],['s','Merch'],...(cur.premium?[['c','Chat'],['t','Support']]:[]),['r','Report']].map(([k,i])=>`<button class="${tab===k?'on':''}" onclick="tab='${k}';route()">${i}</button>`).join('')+'</div><div id=ct></div>';
+ const c=$('#ct'),list=t=>c.innerHTML=cur.items.filter(i=>t?i.type==='merch':i.type!=='merch').map(row).join('')||NONE;
+ if(tab==='m')list(0);if(tab==='s')list(1);if(tab==='c')chat();
+ if(tab==='t')c.innerHTML='<p class=m>Give any amount straight to the artist. Minimum UGX 500.</p><input id=am type=number min=500 value=2000><button class=b onclick=tipGo()>Give support</button>';
+ if(tab==='r')c.innerHTML='<p class=m>Is this a fake page or a fraud attempt? Tell us and we will review it.</p><textarea id=rs rows=4></textarea><button class=b onclick=rep()>Send report</button>'}
+const buy=id=>{const i=cur.items.find(x=>x.id===id);pay(i.title,i.price,b=>api('buy',{json:{itemId:id,...b}}))};
+const tipGo=()=>pay('Support for '+cur.name,+$('#am').value,b=>api('tip',{json:{artistId:cur.id,amount:+$('#am').value,...b}}));
+const rep=async()=>{try{await api('report',{json:{artistId:cur.id,reason:$('#rs').value}});alert('Thank you. Your report was sent.')}catch(e){alert(e.message)}};
+function pay(title,amt,call){if(!me){location.hash='#/in';return}
+ $('#dg').innerHTML=`<h3>${esc(title)}</h3><p class=m>Enter the number that will pay.</p><input id=ph inputmode=tel placeholder="07XXXXXXXX" value="${esc(localStorage.ph||'')}"><select id=nw><option value=mtn>MTN Mobile Money<option value=airtel>Airtel Money</select><h3>${fmt(amt)}</h3><div class=r><button class=b id=go>Pay</button><button class="b o" onclick=dg.close()>Cancel</button></div><p id=ms class=m></p>`;$('#dg').showModal();
+ $('#go').onclick=async()=>{localStorage.ph=$('#ph').value;$('#ms').textContent='Approve the payment on your phone.';try{let o=await call({phone:$('#ph').value,network:$('#nw').value});
+  while(o.status!=='paid'){await new Promise(r=>setTimeout(r,2500));o=await api('orders/'+o.id)}await refresh();$('#dg').close();route()}catch(e){$('#ms').textContent=e.message}}}
+async function dl(id){const r=await api('download/'+id,{raw:1});if(!r.ok)return alert('Download not available');const a=document.createElement('a');a.href=URL.createObjectURL(await r.blob());a.download=r.headers.get('x-name')||'music';a.click()}
+function chat(){const box=()=>api('chat/'+cur.id).then(L=>{const e=$('#cb');if(e){e.innerHTML=L.map(m=>`<p><b>${esc(m.name)}</b>${m.artist?' <span class=lab>Artist</span>':''}<br>${esc(m.text)}</p>`).join('')||NONE;e.scrollTop=1e9}});
+ $('#ct').innerHTML='<div class=ch id=cb></div><div class=r style="margin-top:10px"><input id=mt placeholder="Write a message"><button class=b onclick=send()>Send</button></div>';box();poll=setInterval(box,4000);
+ window.send=async()=>{if(!me){location.hash='#/in';return}const t=$('#mt').value;if(!t)return;$('#mt').value='';try{await api('chat/'+cur.id,{json:{text:t}});box()}catch(e){alert(e.message)}}}
+function login(){let reg=0;const d=()=>{$('#app').innerHTML=`<span class=lab>FanBridge</span><h1>${reg?'Create your account':'Welcome back'}</h1>`+(reg?'<select id=ro onchange="document.querySelectorAll(\'.po\').forEach(e=>e.style.display=this.value===\'artist\'?\'block\':\'none\')"><option value=fan>I am a fan<option value=artist>I am an artist</select><input id=nm placeholder="Full name"><input class=po id=pn inputmode=tel placeholder="Payout number, 07XXXXXXXX" style="display:none"><select class=po id=pnw style="display:none"><option value=mtn>MTN Mobile Money<option value=airtel>Airtel Money</select>':'')+'<input id=em type=email placeholder="Email"><input id=pw type=password placeholder="Password, 8 or more with a number"><input id=cd inputmode=numeric placeholder="Authenticator code" style="display:none"><div class=r><button class=b id=ok>'+(reg?'Sign up':'Log in')+'</button><button class="b o" id=sw>'+(reg?'I have an account':'Create account')+'</button></div><p id=er class=m></p>';
+ $('#sw').onclick=()=>{reg=!reg;d()};$('#ok').onclick=async()=>{try{const x=await api(reg?'register':'login',{json:{role:$('#ro')&&$('#ro').value,name:$('#nm')&&$('#nm').value,phone:$('#pn')&&$('#pn').value,network:$('#pnw')&&$('#pnw').value,email:$('#em').value,password:$('#pw').value,code:$('#cd').value}});if(x.step==='code'){$('#cd').style.display='block';$('#er').textContent='Enter the 6 digit code from your authenticator app.';return}await refresh();location.hash='#/me';route()}catch(e){$('#er').textContent=e.message}}};d()}
+async function portal(){if(!me){location.hash='#/in';return}
+ if(me.role==='fan'){const L=await api('purchases');$('#app').innerHTML='<span class=lab>My account</span><h1>My music</h1>'+(L.map(i=>`<div class=card><span><span class=lab>${TY[i.type]}</span><h3>${esc(i.title)}</h3><span class=m>${esc(i.artist)}</span></span>${i.type==='merch'?'<span class=lab>Ordered</span>':`<button class=b onclick="dl('${i.id}')">Download</button>`}</div>`).join('')||NONE)+SEC()+DEL;return}
+ if(me.role==='admin')return adminV();
+ const D=await api('dash'),MY=await api('mine'),PL=`<h2>Your plan</h2><div class=card><span><span class=lab>${D.premium?'Premium':'Free plan'}</span><h3>${D.premium?'Active until '+new Date(D.until).toLocaleDateString():'Music and merch sales'}</h3><span class=m>Premium unlocks fan support payments and fan chat on your page. ${fmt(D.price)} a month.</span></span><button class=b onclick="prem(${D.price})">${D.premium?'Renew':'Go Premium'}</button></div>`,WD=`<p class=m>Paid to ${esc(me.payout.phone)} on ${me.payout.network==='mtn'?'MTN':'Airtel'}. Any amount, no minimum.</p>`+(me.payout.hold>Date.now()?`<p class=m>Withdrawals are paused until ${new Date(me.payout.hold).toLocaleString()} because the payout number was changed.</p>`:me.totp?'<input id=wa type=number placeholder="Amount in UGX"><input id=wc inputmode=numeric placeholder="Authenticator code"><button class=b onclick=wd()>Withdraw</button>':'<p class=m>Turn on 2 step protection under Security before you withdraw.</p>'),nw='<select id=wn><option value=mtn>MTN Mobile Money<option value=airtel>Airtel Money</select>';
+ $('#app').innerHTML=`<span class=lab>${me.verified?'Verified artist':'Pending verification'}</span><h1>${esc(me.name)}</h1>`+(me.verified?'':'<p class=m>Fans can see your page after we verify your identity.</p>')+
+ `<div class=s><div><span class=lab>Balance</span><b>${fmt(D.balance)}</b></div><div><span class=lab>Sales</span><b>${fmt(D.sales)}</b></div><div><span class=lab>Support</span><b>${fmt(D.tips)}</b></div><div><span class=lab>Downloads</span><b>${D.downloads}</b></div></div>${PL}
+ <h2>Withdraw</h2>${WD}
+ <h2>Add a release</h2><select id=it onchange="$('#sk').style.display=this.value==='merch'?'block':'none'"><option value=song>Song<option value=album>Album<option value=merch>Merch</select><input id=ti placeholder="Title"><input id=pr type=number placeholder="Price in UGX"><input id=sk type=number min=0 placeholder="How many in stock" style="display:none"><input id=fl type=file accept="audio/*,.zip"><button class=b onclick=add()>Publish</button>
+ <h2>My releases</h2>`+(MY.map(rel).join('')||NONE)+`<h2>Recent sales</h2>`+(D.recent.map(o=>`<div class=card><span><span class=lab>${o.title?'Sale':'Support'}</span><br>${o.title?esc(o.title):'Fan support'} ${esc(o.phone)}</span><b>${fmt(o.amount)}</b></div>`).join('')||NONE)+SEC()+DEL}
+const vf=async i=>{await api('verify/'+i,{method:'POST'});route()};
+async function wd(){try{await api('withdraw',{json:{amount:+$('#wa').value,code:$('#wc').value}});alert('Withdrawal sent');route()}catch(e){alert(e.message)}}
+async function add(){try{const f=$('#fl').files[0],i=await api('items',{json:{type:$('#it').value,title:$('#ti').value,price:+$('#pr').value,stock:+$('#sk').value}});if(f)await api('upload/'+i.id+'?ext='+f.name.split('.').pop(),{method:'PUT',body:f});route()}catch(e){alert(e.message)}}
+const rel=i=>`<div class=card><span><span class=lab>${TY[i.type]}${i.hidden?', hidden':''}</span><h3>${esc(i.title)}</h3><span class=m>${fmt(i.price)}${i.type==='merch'?', '+(i.stock>0?i.stock+' in stock':'sold out'):''}</span></span><span class=r>${i.type==='merch'?`<button class="b o" onclick="stk('${i.id}')">Restock</button>`:''}<button class="b o" onclick="hid('${i.id}')">${i.hidden?'Show':'Hide'}</button><button class="b o" onclick="del('${i.id}')">Delete</button></span></div>`;
+const stk=async id=>{const n=prompt('How many are now in stock?');if(n===null)return;try{await api('stock/'+id,{json:{stock:+n}});route()}catch(e){alert(e.message)}};
+const hid=async id=>{await api('hide/'+id,{method:'POST'});route()};
+const del=async id=>{if(!confirm('Delete this release for good? Fans who bought it will lose their download. Use Hide to keep their access.'))return;await api('items/'+id,{method:'DELETE'});route()};
+const DEL='<h2>Delete account</h2><p class=m>This removes your account and cannot be undone. Artists must withdraw their balance first.</p><input id=dp type=password placeholder="Enter your password"><button class="b o" onclick=delAcc()>Delete my account</button>';
+async function delAcc(){if(!confirm('Delete your account permanently?'))return;try{await api('account',{method:'DELETE',json:{password:$('#dp').value,code:me.totp?prompt('Authenticator code'):''}});out()}catch(e){alert(e.message)}}
+let at='e';
+async function adminV(){const[D,E]=await Promise.all([api('admin'),api('earnings')]),dt=t=>new Date(t).toLocaleDateString(),k=(l,v)=>`<div><span class=lab>${l}</span><b>${v}</b></div>`;
+ let h='<span class=lab>Admin</span><h1>Dashboard</h1><div class=tabs>'+[['e','Earnings'],['v','Verify '+D.pending.length],['r','Reports '+D.reports.length],['a','Audit'],['s','Security']].map(([x,l])=>`<button class="${at===x?'on':''}" onclick="at='${x}';route()">${l}</button>`).join('')+'</div>';
+ if(at==='e')h+=`<div class=s>${k('Your commission',fmt(E.fee))}${k('This month',fmt(E.feeMonth))}${k('Total sales',fmt(E.gross))}${k('Owed to artists',fmt(E.owed))}${k('Paid to artists',fmt(E.withdrawn))}${k('Premium plan income',fmt(E.subs))}${k('Premium artists',E.premiumArtists)}${k('Paid orders',E.orders)}</div><p class=m>Total sales equal your commission, plus what artists have withdrawn, plus what they are still owed. Keep the owed amount safe in your payment account.</p><h2>Artists</h2>`
+  +(E.artists.map(a=>`<div class=card><span><h3>${esc(a.name)}</h3><span class=m>Sales ${fmt(a.gross)}, your commission ${fmt(a.fee)}</span></span><span class=m>Owed ${fmt(a.balance)}</span></div>`).join('')||NONE)
+  +'<h2>Recent payments</h2>'+(E.recent.map(o=>`<div class=card><span><h3>${esc(o.title)}</h3><span class=m>${esc(o.artist)}, ${dt(o.ts)}</span></span><span>${fmt(o.amount)}<br><span class=m>Fee ${fmt(o.fee)}</span></span></div>`).join('')||NONE)
+  +'<h2>Withdrawals</h2>'+(E.wd.map(w=>`<div class=card><span><h3>${esc(w.artist)}</h3><span class=m>${w.network==='mtn'?'MTN':'Airtel'}, ${dt(w.ts)}, ${esc(w.status)}</span></span><b>${fmt(w.amount)}</b></div>`).join('')||NONE);
+ if(at==='v')h+=D.pending.map(u=>`<div class=card><span><h3>${esc(u.name)}</h3><span class=m>${esc(u.email)} ${esc(u.phone)}</span></span><button class=b onclick="vf('${u.id}')">Verify</button></div>`).join('')||NONE;
+ if(at==='r')h+=D.reports.map(r=>`<div class=card><span><span class=lab>${esc(r.artist)}</span><br>${esc(r.reason)}</span><button class="b o" onclick="sus('${r.id}')">Suspend</button></div>`).join('')||NONE;
+ if(at==='s')h+=SEC();if(at==='a')h+=(await api('audit')).map(a=>`<div class=card><span class=m>${dt(a.ts)} ${esc(a.a)} ${esc(a.d)}</span></div>`).join('')||NONE;
+ $('#app').innerHTML=h}
+const prem=p=>pay('Premium plan, 30 days',p,b=>api('premium',{json:b}));
+const SEC=()=>'<h2>Security</h2>'+(me.totp?'<p class=m>2 step protection is on. Withdrawals and logins need a code from your authenticator app.</p><button class="b o" onclick=tfOff()>Turn off</button>':'<p class=m>Protect your money and login with a code from an authenticator app such as Google Authenticator.</p><input id=sp type=password placeholder="Your password"><button class=b onclick=tfOn()>Turn on 2 step protection</button><div id=tf></div>')+'<h3>Change password</h3><input id=op type=password placeholder="Current password"><input id=np type=password placeholder="New password, 8 or more with a number"><button class="b o" onclick=chPw()>Change password</button>'+(me.role==='artist'?'<h3>Payout number</h3><input id=pp inputmode=tel placeholder="07XXXXXXXX"><select id=pn2><option value=mtn>MTN Mobile Money<option value=airtel>Airtel Money</select><input id=pw2 type=password placeholder="Your password">'+(me.totp?'<input id=pc inputmode=numeric placeholder="Authenticator code">':'')+'<button class="b o" onclick=chPay()>Change payout number</button><p class=m>After a change, withdrawals pause for 24 hours to protect you.</p>':'');
+async function tfOn(){try{const r=await api('2fa/setup',{json:{password:$('#sp').value}});$('#tf').innerHTML='<p class=m>Add this key to your authenticator app, then enter the 6 digit code it shows.</p><p><b>'+esc(r.secret)+'</b></p><input id=sc inputmode=numeric placeholder="6 digit code"><button class=b onclick=tfOk()>Confirm</button>'}catch(e){alert(e.message)}}
+async function tfOk(){try{await api('2fa/enable',{json:{code:$('#sc').value}});await refresh();route()}catch(e){alert(e.message)}}
+async function tfOff(){const p=prompt('Your password'),c=prompt('Authenticator code');if(!p)return;try{await api('2fa/disable',{json:{password:p,code:c}});await refresh();route()}catch(e){alert(e.message)}}
+async function chPw(){try{await api('password',{json:{old:$('#op').value,new:$('#np').value,code:me.totp?prompt('Authenticator code'):''}});alert('Password changed. Your other devices were logged out.');route()}catch(e){alert(e.message)}}
+async function chPay(){try{await api('payout',{json:{phone:$('#pp').value,network:$('#pn2').value,password:$('#pw2').value,code:$('#pc')?$('#pc').value:''}});await refresh();alert('Payout number changed. Withdrawals are paused for 24 hours.');route()}catch(e){alert(e.message)}}
+const sus=async i=>{if(!confirm('Suspend this artist? They are logged out and hidden.'))return;await api('suspend/'+i,{method:'POST'});route()};
+</script>
